@@ -1,6 +1,6 @@
 import './App.css';
 import React, { useState, useEffect } from 'react'
-import { useData } from './utilities/firebase.js';
+import { useData, setData, useUserState, getMeetingData, signInWithGoogle, useUserState, signOut} from './utilities/firebase.js';
 
 const Banner = ({ title }) => (
   <h1>{ title }</h1>
@@ -36,15 +36,7 @@ const TermButton = ({term, setTerm, checked}) => (
   </>
 );
 
-const TermSelector = ({term, setTerm}) => (
-  <div className="btn-group">
-  { 
-    Object.values(terms).map(value => (
-      <TermButton key={value} term={value} setTerm={setTerm} checked={value === term} />
-    ))
-  }
-  </div>
-);
+
 
 const terms = { F: 'Fall', W: 'Winter', S: 'Spring'};
 
@@ -56,19 +48,41 @@ const getCourseNumber = course => (
   course.id.slice(1, 4)
 );
 
+const getCourseMeetingData = course => {
+  const meets = prompt('Enter meeting data: MTuWThF hh:mm-hh:mm', course.meets);
+  const valid = !meets || timeParts(meets).days;
+  if (valid) return meets;
+  alert('Invalid meeting data');
+  return null;
+};
+
+const reschedule = async (course, meets) => {
+  if (meets && window.confirm(`Change ${course.id} to ${meets}?`)) {
+    try {
+      await setData(`/courses/${course.id}/meets`, meets);
+    } catch (error) {
+      alert(error);
+    }
+  }
+};
+
 const Course = ({ course, selected, setSelected }) => {
   const isSelected = selected.includes(course);
-  const isDisabled = !isSelected && hasConflict(course, selected);
+  const isDisabled = hasConflict(course, selected);
+  const [user] = useUserState();
   const style = {
     backgroundColor: isDisabled? 'lightgrey' : isSelected ? 'lightgreen' : 'white'
   };
+
   return (
     <div className="card m-1 p-2" 
-      style={style}
-      onClick={isDisabled ? null : () =>  setSelected(toggle(course, selected))}>
+        style={style}
+        onClick={(isDisabled) ? null : () => setSelected(toggle(course, selected))}
+        onDoubleClick={!user ? null : () => reschedule(course, getMeetingData(course))}>
       <div className="card-body">
         <div className="card-title">{ getCourseTerm(course) } CS { getCourseNumber(course) }</div>
         <div className="card-text">{ course.title }</div>
+        <div className="card-text">{ course.meets }</div>
       </div>
     </div>
   );
@@ -145,5 +159,35 @@ const App = () => {
   );
 };
 
+//auth
+const SignInButton = () => (
+  <button className="btn btn-secondary btn-sm"
+      onClick={() => signInWithGoogle()}>
+    Sign In
+  </button>
+);
+
+const TermSelector = ({term, setTerm}) => {
+  const [user] = useUserState();
+  return(
+    <div className="btn-toolbar justify-content-between">
+      <div className="btn-group">
+      { 
+        Object.values(terms).map(
+          value => <TermButton key={value} term={value} setTerm={setTerm} checked={value === term} />
+        )
+      }
+      </div>
+      { user ? <SignOutButton /> : <SignInButton /> }
+    </div>
+  );
+};
+
+const SignOutButton = () => (
+  <button className="btn btn-secondary btn-sm"
+      onClick={() => signOut()}>
+    Sign Out
+  </button>
+);
 
 export default App;
