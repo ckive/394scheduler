@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "scheduler-9fc33",
     "public": "build",
     "ignore": [
       "firebase.json",
